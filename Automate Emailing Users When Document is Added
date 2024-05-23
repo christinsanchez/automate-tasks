@@ -1,0 +1,113 @@
+/**
+ * Sets up a trigger to run the main function every hour.
+ */
+function onOpen() {
+  ScriptApp.newTrigger('main')
+           .timeBased()
+           .everyHours(1)
+           .create();
+}
+
+
+/**
+ * Checks the specified folder for new files added since the last check.
+ * Sends a notification if new files are found.
+ *
+ * @param {string} folderId - The ID of the folder to check.
+ */
+function checkNewFiles(folderId) {
+  try {
+    var folder = DriveApp.getFolderById(folderId);
+  } catch (e) {
+    Logger.log('Error accessing folder: ' + e.message);
+    return;
+  }
+  
+  var files = folder.getFiles();
+
+  var properties = PropertiesService.getScriptProperties();
+  var lastCheck = properties.getProperty('LAST_CHECK');
+  if (!lastCheck) {
+    lastCheck = new Date(0);
+  } else {
+    lastCheck = new Date(lastCheck);
+  }
+
+  var newFiles = [];
+  while (files.hasNext()) {
+    var file = files.next();
+    var dateCreated = file.getDateCreated();
+    if (dateCreated > lastCheck) {
+      newFiles.push(file);
+    }
+  }
+  
+  if (newFiles.length > 0) {
+    sendNotification(newFiles, folderId);
+  }
+
+  properties.setProperty('LAST_CHECK', new Date());
+}
+
+
+/**
+ * Sends an email notification to all users with access to the folder
+ * if new files are found.
+ *
+ * @param {Array} newFiles - Array of new files added to the folder.
+ * @param {string} folderId - The ID of the folder.
+ */
+function sendNotification(newFiles, folderId) {
+  var folder = DriveApp.getFolderById(folderId);
+  var editors = folder.getEditors();
+  var viewers = folder.getViewers();
+  var owner = folder.getOwner(); 
+  var folderName = folder.getName(); 
+
+  var emails = [];
+  for (var i = 0; i < editors.length; i++) {
+    emails.push(editors[i].getEmail());
+  }
+  for (var j = 0; j < viewers.length; j++) {
+    if (emails.indexOf(viewers[j].getEmail()) === -1) {
+      emails.push(viewers[j].getEmail());
+    }
+  }
+
+  emails.push(owner.getEmail()); 
+
+  var subject = 'New Document Added to ' + folderName; 
+  var body = 'Hello,\n\nThe following new documents have been added to the folder ' + folderName + ':\n\n';
+  for (var k = 0; k < newFiles.length; k++) {
+    body += 'Document Name: ' + newFiles[k].getName() + ' - ' + newFiles[k].getUrl() + '\n';
+  }
+
+  MailApp.sendEmail(emails.join(','), subject, body);
+}
+
+
+/**
+ * Main function to be run on parent folder that will iterate through each of the children folders and their children.
+ */
+function main() {
+  var parentFolderId = '1QVqrTCl6BcGn13Q7XP8dpM6TewZgnGZ0'; // Replace with the main parent folder id 
+  var parentFolder = DriveApp.getFolderById(parentFolderId); 
+  traverseFolders(parentFolder);
+}
+
+
+/**
+ * Recursively traverses through all folders and subfolders to check for new files.
+ *
+ * @param {Folder} folder - The folder to traverse.
+ */
+function traverseFolders(folder) {
+  checkNewFiles(folder.getId());
+  var folders = folder.getFolders();
+  while (folders.hasNext()) {
+    var subFolder = folders.next();
+    var folderName = subFolder.getName() 
+    Logger.log(folderName)
+    traverseFolders(subFolder); // Recursive call to check subfolders
+  }
+}
