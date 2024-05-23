@@ -2,7 +2,7 @@
 
 FileName: Automate Emailing Users When Document is Added
 
-Purpose: Emails those w/ explicit access to google folder when a document is added to that folder 
+Purpose: Emails those w/ access (viewers + editors) to google folder when a document is added to that folder 
 
 Instructions: 
 
